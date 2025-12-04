@@ -1,0 +1,44 @@
+name: CD Workflow # Continuous delivery workflow
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+  workflow_call:      # Esto permite que otros repos lo llamen
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      NODE_VERSION: '24'
+      ENVIRONMENT: '${{ github.ref_name }}'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build the project
+        run: |
+          if [ "${{ github.ref_name }}" == "master" ] || [ "${{ github.ref_name }}" == "main" ]; then
+            npm run build:prod
+          elif [ "${{ github.ref_name }}" == "develop" ]; then
+            npm run build:demo
+          else
+            echo "Unrecognized branch: ${{ github.ref_name }}"
+            exit 1
+          fi
+
+      - name: Build docker image
+        run: docker build -t ${{ env.ENVIRONMENT }} .
+      
+      - name: Push docker image
+        run: docker push ${{ env.ENVIRONMENT }}
